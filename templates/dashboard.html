@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Driver Drowsiness Detection{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Drowsiness Detection</h3>
+            <button class="btn toggle-btn" id="sidebarToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <div class="user-info">
+            <div class="user-avatar">
+                <i class="fas fa-user-circle"></i>
+            </div>
+            <div class="user-name">{{ username }}</div>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="menu-item active" data-page="home">
+                <a href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="file-detection">
+                <a href="{{ url_for('file_detection') }}">
+                    <i class="fas fa-file-upload"></i>
+                    <span>File Detection</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="webcam-detection">
+                <a href="{{ url_for('webcam_detection') }}">
+                    <i class="fas fa-camera"></i>
+                    <span>Webcam Detection</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="statistics">
+                <a href="{{ url_for('statistics') }}">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Statistics</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="model-info">
+                <a href="{{ url_for('model_info') }}">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Model Info</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="{{ url_for('logout') }}">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="content-header">
+            <h1>Dashboard</h1>
+            <p>Welcome to the Driver Drowsiness Detection System</p>
+        </div>
+
+        <div class="content-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="info-card">
+                        <h2>Model Information</h2>
+                        <div class="model-info">
+                            <h3>{{ model_info.name }}</h3>
+                            <p>{{ model_info.description }}</p>
+                            
+                            <h4>Performance Metrics</h4>
+                            <div class="metrics-container">
+                                <div class="metric-item">
+                                    <div class="metric-value">{{ model_info.metrics.mAP }}</div>
+                                    <div class="metric-label">mAP</div>
+                                </div>
+                                <div class="metric-item">
+                                    <div class="metric-value">{{ model_info.metrics.Precision }}</div>
+                                    <div class="metric-label">Precision</div>
+                                </div>
+                                <div class="metric-item">
+                                    <div class="metric-value">{{ model_info.metrics.Recall }}</div>
+                                    <div class="metric-label">Recall</div>
+                                </div>
+                            </div>
+                            
+                            <h4>Detection Classes</h4>
+                            <ul class="classes-list">
+                                {% for class in model_info.classes %}
+                                <li>{{ class }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="info-card">
+                        <h2>Quick Actions</h2>
+                        <div class="quick-actions">
+                            <a href="{{ url_for('file_detection') }}" class="action-card">
+                                <div class="action-icon">
+                                    <i class="fas fa-file-upload"></i>
+                                </div>
+                                <div class="action-text">
+                                    <h4>File Detection</h4>
+                                    <p>Upload images or videos for drowsiness detection</p>
+                                </div>
+                            </a>
+                            <a href="{{ url_for('webcam_detection') }}" class="action-card">
+                                <div class="action-icon">
+                                    <i class="fas fa-camera"></i>
+                                </div>
+                                <div class="action-text">
+                                    <h4>Webcam Detection</h4>
+                                    <p>Real-time drowsiness detection using webcam</p>
+                                </div>
+                            </a>
+                            <a href="{{ url_for('statistics') }}" class="action-card">
+                                <div class="action-icon">
+                                    <i class="fas fa-chart-bar"></i>
+                                </div>
+                                <div class="action-text">
+                                    <h4>View Statistics</h4>
+                                    <p>See your detection history and results</p>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="info-card">
+                        <h2>How It Works</h2>
+                        <div class="how-it-works">
+                            <div class="step">
+                                <div class="step-number">1</div>
+                                <div class="step-content">
+                                    <h4>Upload or Use Webcam</h4>
+                                    <p>Upload an image/video or use your webcam for real-time detection</p>
+                                </div>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">2</div>
+                                <div class="step-content">
+                                    <h4>AI Processing</h4>
+                                    <p>Our YOLOv8 model analyzes the input for signs of drowsiness</p>
+                                </div>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">3</div>
+                                <div class="step-content">
+                                    <h4>Get Results</h4>
+                                    <p>View detailed detection results and receive alerts for drowsiness</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

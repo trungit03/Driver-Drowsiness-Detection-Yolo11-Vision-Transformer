@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome - Driver Drowsiness Detection{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="welcome-container">
+    <div class="welcome-card">
+        <div class="text-center mb-4">
+            <h1 class="display-4">Driver Drowsiness Detection</h1>
+            <p class="lead">Advanced AI-powered system to detect driver drowsiness and prevent accidents</p>
+        </div>
+        
+        <div class="features-section">
+            <h2>Key Features</h2>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="feature-card">
+                        <i class="fas fa-eye feature-icon"></i>
+                        <h3>Eye Closure Detection</h3>
+                        <p>Monitors eye closure patterns to identify drowsiness</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="feature-card">
+                        <i class="fas fa-head-side-cough feature-icon"></i>
+                        <h3>Yawn Detection</h3>
+                        <p>Identifies frequent yawning as a sign of fatigue</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="feature-card">
+                        <i class="fas fa-arrows-alt-v feature-icon"></i>
+                        <h3>Head Movement</h3>
+                        <p>Tracks head position to detect nodding off</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="action-buttons mt-5">
+            <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg me-3">Login</a>
+            <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-lg">Register</a>
+        </div>
+        
+        <div class="tech-info mt-5">
+            <h3>Powered By</h3>
+            <div class="tech-badges">
+                <span class="badge bg-secondary">YOLOv8</span>
+                <span class="badge bg-secondary">OpenCV</span>
+                <span class="badge bg-secondary">PyTorch</span>
+                <span class="badge bg-secondary">Flask</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer class="footer mt-auto py-3 bg-light">
+    <div class="container text-center">
+        <span class="text-muted">© 2025 Driver Drowsiness Detection System</span>
+    </div>
+</footer>
+{% endblock %}

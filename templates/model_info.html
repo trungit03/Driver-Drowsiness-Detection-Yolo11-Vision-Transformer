@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Model Information - Driver Drowsiness Detection{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Drowsiness Detection</h3>
+            <button class="btn toggle-btn" id="sidebarToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <div class="user-info">
+            <div class="user-avatar">
+                <i class="fas fa-user-circle"></i>
+            </div>
+            <div class="user-name">{{ session.username }}</div>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="menu-item" data-page="home">
+                <a href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="file-detection">
+                <a href="{{ url_for('file_detection') }}">
+                    <i class="fas fa-file-upload"></i>
+                    <span>File Detection</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="webcam-detection">
+                <a href="{{ url_for('webcam_detection') }}">
+                    <i class="fas fa-camera"></i>
+                    <span>Webcam Detection</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="statistics">
+                <a href="{{ url_for('statistics') }}">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Statistics</span>
+                </a>
+            </li>
+            <li class="menu-item active" data-page="model-info">
+                <a href="{{ url_for('model_info') }}">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Model Info</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="{{ url_for('logout') }}">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="content-header">
+            <h1>Model Information</h1>
+            <p>Details about the YOLOv8 drowsiness detection model</p>
+        </div>
+
+        <div class="content-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Model Overview</h3>
+                        </div>
+                        <div class="card-body">
+                            <h4>{{ model_info.name }}</h4>
+                            <p class="lead">{{ model_info.description }}</p>
+                            
+                            <div class="mt-4">
+                                <h5>Architecture</h5>
+                                <p>{{ model_info.architecture }}</p>
+                                
+                                <h5>Dataset</h5>
+                                <p>{{ model_info.dataset }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h3>Training Details</h3>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group">
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    Epochs
+                                    <span>{{ model_info.training_details.epochs }}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    Batch Size
+                                    <span>{{ model_info.training_details.batch_size }}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    Optimizer
+                                    <span>{{ model_info.training_details.optimizer }}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    Learning Rate
+                                    <span>{{ model_info.training_details.learning_rate }}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    Augmentation
+                                    <span>{{ model_info.training_details.augmentation }}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Performance Metrics</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="metrics-container">
+                                <div class="metric-card">
+                                    <div class="metric-value">{{ model_info.metrics.mAP }}</div>
+                                    <div class="metric-label">mAP</div>
+                                    <div class="progress">
+                                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ (model_info.metrics.mAP|float * 100)|int }}%" aria-valuenow="{{ (model_info.metrics.mAP|float * 100)|int }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-value">{{ model_info.metrics.Precision }}</div>
+                                    <div class="metric-label">Precision</div>
+                                    <div class="progress">
+                                        <div class="progress-bar bg-info" role="progressbar" style="width: {{ (model_info.metrics.Precision|float * 100)|int }}%" aria-valuenow="{{ (model_info.metrics.Precision|float * 100)|int }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-value">{{ model_info.metrics.Recall }}</div>
+                                    <div class="metric-label">Recall</div>
+                                    <div class="progress">
+                                        <div class="progress-bar bg-primary" role="progressbar" style="width: {{ (model_info.metrics.Recall|float * 100)|int }}%" aria-valuenow="{{ (model_info.metrics.Recall|float * 100)|int }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h3>Detection Classes</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Class Name</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for class in model_info.classes %}
+                                        <tr>
+                                            <td>{{ class.id }}</td>
+                                            <td>{{ class.name }}</td>
+                                            <td>
+                                                {% if class.id == 0 or class.id == 1 or class.id == 2 %}
+                                                    Detects closed eyes which may indicate drowsiness
+                                                {% elif class.id == 8 %}
+                                                    Identifies yawning which is a sign of fatigue
+                                                {% elif class.id == 4 %}
+                                                    Detects upward head movement
+                                                {% elif class.id == 5 %}
+                                                    Detects downward head movement (nodding off)
+                                                {% else %}
+                                                    General detection class
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>How the Model Works</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="model-workflow">
+                                <div class="step">
+                                    <div class="step-number">1</div>
+                                    <div class="step-content">
+                                        <h5>Input Processing</h5>
+                                        <p>The system takes input from images, videos, or webcam feeds and preprocesses them for analysis.</p>
+                                    </div>
+                                </div>
+                                <div class="step">
+                                    <div class="step-number">2</div>
+                                    <div class="step-content">
+                                        <h5>Feature Detection</h5>
+                                        <p>YOLOv8 model identifies key facial features including eyes, mouth, and head position.</p>
+                                    </div>
+                                </div>
+                                <div class="step">
+                                    <div class="step-number">3</div>
+                                    <div class="step-content">
+                                        <h5>Pattern Analysis</h5>
+                                        <p>The system analyzes patterns over time to detect prolonged eye closure, frequent yawning, and abnormal head movements.</p>
+                                    </div>
+                                </div>
+                                <div class="step">
+                                    <div class="step-number">4</div>
+                                    <div class="step-content">
+                                        <h5>Alert Generation</h5>
+                                        <p>When drowsiness patterns are detected, the system triggers visual and audio alerts to warn the driver.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
+     

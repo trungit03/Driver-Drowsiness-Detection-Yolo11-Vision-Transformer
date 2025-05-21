@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}File Detection - Driver Drowsiness Detection{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<style>
+    .detection-section {
+        margin-bottom: 30px;
+    }
+    
+    .results-section {
+        margin-top: 30px;
+    }
+    
+    .preview-box {
+        max-height: 300px;
+        overflow: hidden;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+        text-align: center;
+        padding: 10px;
+    }
+    
+    .preview-image, .preview-video {
+        max-width: 100%;
+        max-height: 280px;
+        border-radius: 4px;
+    }
+    
+    .result-media {
+        max-width: 100%;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .result-image {
+        max-width: 100%;
+        border-radius: 8px;
+    }
+    
+    .result-video {
+        width: 100%;
+        max-height: 500px;
+        border-radius: 8px;
+    }
+    
+    .stats-card {
+        background-color: #fff;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    
+    .stat-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+    }
+    
+    .stat-value {
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 40px 20px;
+    }
+    
+    .no-results i {
+        font-size: 48px;
+        color: #6c757d;
+        margin-bottom: 15px;
+    }
+    
+    .action-buttons {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="sidebar" id="sidebar">
+        <!-- Sidebar content remains unchanged -->
+        <div class="sidebar-header">
+            <h3>Drowsiness Detection</h3>
+            <button class="btn toggle-btn" id="sidebarToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <div class="user-info">
+            <div class="user-avatar">
+                <i class="fas fa-user-circle"></i>
+            </div>
+            <div class="user-name">{{ session.username }}</div>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="menu-item" data-page="home">
+                <a href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="menu-item active" data-page="file-detection">
+                <a href="{{ url_for('file_detection') }}">
+                    <i class="fas fa-file-upload"></i>
+                    <span>File Detection</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="webcam-detection">
+                <a href="{{ url_for('webcam_detection') }}">
+                    <i class="fas fa-camera"></i>
+                    <span>Webcam Detection</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="statistics">
+                <a href="{{ url_for('statistics') }}">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Statistics</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="model-info">
+                <a href="{{ url_for('model_info') }}">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Model Info</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="{{ url_for('logout') }}">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="content-header">
+            <h1>File Detection</h1>
+            <p>Upload images or videos for drowsiness detection analysis</p>
+        </div>
+
+        <div class="content-body">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Upload Section -->
+            <div class="detection-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Upload File</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="uploadForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="file" class="form-label">Select Image or Video</label>
+                                <input type="file" class="form-control" id="file" name="file" accept=".jpg,.jpeg,.png,.gif,.mp4,.avi,.mov,.wmv">
+                                <div class="form-text">Supported formats: JPG, PNG, GIF, MP4, AVI, MOV, WMV</div>
+                            </div>
+                            
+                            <div id="previewContainer" class="mb-3 d-none">
+                                <label class="form-label">Preview</label>
+                                <div id="previewContent" class="preview-box"></div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary" id="uploadBtn">
+                                <i class="fas fa-upload me-1"></i> Upload and Detect
+                            </button>
+                        </form>
+                        
+                        <!-- Progress container will be added here via JavaScript -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Results Section -->
+            <div class="results-section d-none" id="resultsSection">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5>Detection Results</h5>
+                        <button class="btn btn-sm btn-outline-secondary" id="resetBtn">
+                            <i class="fas fa-redo me-1"></i> Reset
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <!-- Media result (image/video) -->
+                        <div id="mediaResult" class="text-center"></div>
+                        
+                        <!-- Detection stats -->
+                        <div class="stats-card">
+                            <h5>Detection Statistics</h5>
+                            <div id="detectionStats"></div>
+                            
+                            <div class="action-buttons">
+                                <a href="#" class="btn btn-primary" id="viewDetailedBtn">
+                                    <i class="fas fa-search-plus me-1"></i> View Detailed Results
+                                </a>
+                                <a href="{{ url_for('statistics') }}" class="btn btn-outline-primary">
+                                    <i class="fas fa-chart-bar me-1"></i> View All Statistics
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/detection.js') }}"></script>
+{% endblock %}

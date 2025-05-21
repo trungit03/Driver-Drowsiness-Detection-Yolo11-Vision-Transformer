@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+
+{% block title %}Detection Result - Driver Drowsiness Detection{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<style>
+    .result-container {
+        padding: 20px;
+    }
+    .result-image {
+        max-width: 100%;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    .result-video {
+        width: 100%;
+        max-width: 800px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    .stats-card {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    .stat-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+    }
+    .stat-icon i {
+        color: #495057;
+    }
+    .stat-value {
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+    .video-controls {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    .video-container {
+        margin-bottom: 20px;
+    }
+    .detection-meta {
+        margin-top: 20px;
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Drowsiness Detection</h3>
+            <button class="btn toggle-btn" id="sidebarToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <div class="user-info">
+            <div class="user-avatar">
+                <i class="fas fa-user-circle"></i>
+            </div>
+            <div class="user-name">{{ session.username }}</div>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="menu-item" data-page="home">
+                <a href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="file-detection">
+                <a href="{{ url_for('file_detection') }}">
+                    <i class="fas fa-file-upload"></i>
+                    <span>File Detection</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="webcam-detection">
+                <a href="{{ url_for('webcam_detection') }}">
+                    <i class="fas fa-camera"></i>
+                    <span>Webcam Detection</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="statistics">
+                <a href="{{ url_for('statistics') }}">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Statistics</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="model-info">
+                <a href="{{ url_for('model_info') }}">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Model Info</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="{{ url_for('logout') }}">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="content-header">
+            <h1>Detection Result</h1>
+            <p>View the results of your detection</p>
+        </div>
+
+        <div class="content-body">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="result-container">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Detection Result</h3>
+                        <p class="text-muted">{{ detection.filename }} ({{ detection.detection_type }})</p>
+                    </div>
+                    <div class="card-body">
+                        {% if detection.detection_type == 'image' %}
+                            {% if result_url %}
+                                <img src="{{ result_url }}" alt="Detection Result" class="result-image">
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    Result image not found
+                                </div>
+                            {% endif %}
+                        {% elif detection.detection_type == 'video' or detection.detection_type == 'webcam' %}
+                            {% if result_url %}
+                                <div class="video-container">
+                                    <video id="resultVideo" controls class="result-video" controlsList="nodownload">
+                                        <source src="{{ result_url }}" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                    <div class="video-controls mt-2">
+                                        <button class="btn btn-sm btn-primary" onclick="document.getElementById('resultVideo').play()">
+                                            <i class="fas fa-play"></i> Play
+                                        </button>
+                                        <button class="btn btn-sm btn-secondary" onclick="document.getElementById('resultVideo').pause()">
+                                            <i class="fas fa-pause"></i> Pause
+                                        </button>
+                                        <button class="btn btn-sm btn-info" onclick="document.getElementById('resultVideo').currentTime = 0">
+                                            <i class="fas fa-redo"></i> Restart
+                                        </button>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    Result video not found
+                                </div>
+                            {% endif %}
+                        {% endif %}
+
+                        <div class="stats-card mt-4">
+                            <h4>Detection Details</h4>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="stat-item">
+                                        <div class="stat-icon">
+                                            <i class="fas fa-eye-slash"></i>
+                                        </div>
+                                        <div>
+                                            <div class="stat-label">Drowsy Detections</div>
+                                            <div class="stat-value">{{ detection.drowsy_count }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="stat-item">
+                                        <div class="stat-icon">
+                                            <i class="fas fa-head-side-cough"></i>
+                                        </div>
+                                        <div>
+                                            <div class="stat-label">Yawn Detections</div>
+                                            <div class="stat-value">{{ detection.yawn_count }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="stat-item">
+                                        <div class="stat-icon">
+                                            <i class="fas fa-arrows-alt-v"></i>
+                                        </div>
+                                        <div>
+                                            <div class="stat-label">Head Movements</div>
+                                            <div class="stat-value">{{ detection.head_movement_count }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-md-4">
+                                    <div class="stat-item">
+                                        <div class="stat-icon">
+                                            <i class="fas fa-tachometer-alt"></i>
+                                        </div>
+                                        <div>
+                                            <div class="stat-label">Average FPS</div>
+                                            <div class="stat-value">{{ detection.avg_fps|round(1) }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="stat-item">
+                                        <div class="stat-icon">
+                                            <i class="fas fa-film"></i>
+                                        </div>
+                                        <div>
+                                            <div class="stat-label">Total Frames</div>
+                                            <div class="stat-value">{{ detection.total_frames }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="stat-item">
+                                        <div class="stat-icon">
+                                            <i class="fas fa-clock"></i>
+                                        </div>
+                                        <div>
+                                            <div class="stat-label">Timestamp</div>
+                                            <div class="stat-value">{{ detection.timestamp.strftime('%Y-%m-%d %H:%M') }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="detection-meta">
+                            <p><strong>Detection ID:</strong> {{ detection.id }}</p>
+                            <p><strong>Status:</strong> <span class="badge bg-{{ 'success' if detection.status == 'completed' else 'warning' }}">{{ detection.status }}</span></p>
+                        </div>
+
+                        <div class="mt-4">
+                            <a href="{{ url_for('download_result', detection_id=detection.id) }}" class="btn btn-primary">
+                                <i class="fas fa-download me-2"></i> Download Result
+                            </a>
+                            <a href="{{ url_for('statistics') }}" class="btn btn-secondary ms-2">
+                                <i class="fas fa-arrow-left me-2"></i> Back to Statistics
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Thêm phần tử audio ẩn cho cảnh báo -->
+<audio id="alarmSound" src="{{ url_for('static', filename='alarm.wav') }}" preload="auto"></audio>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Ensure video loads properly
+        const videoElement = document.getElementById('resultVideo');
+        if (videoElement) {
+            videoElement.onloadeddata = function() {
+                console.log('Video loaded successfully');
+            };
+            
+            videoElement.onerror = function() {
+                console.error('Error loading video');
+                const videoContainer = videoElement.closest('.video-container');
+                if (videoContainer) {
+                    videoContainer.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Error loading video. The file might be corrupted or in an unsupported format.
+                        </div>
+                    `;
+                }
+            };
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+    const video = document.getElementById('resultVideo');
+
+    if (video) {
+        video.onloadeddata = function () {
+            console.log('Video loaded successfully');
+        };
+        video.onerror = function () {
+            console.error('Error loading video');
+        };
+
+        // Tự động phát có âm thanh sau tương tác
+        document.body.addEventListener('click', function () {
+            video.muted = false;
+            video.play().catch(err => {
+                console.log("Autoplay failed:", err);
+                });
+            }, { once: true });
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+    const video = document.getElementById('resultVideo');
+    if (video) {
+        video.muted = false;  // Bỏ chế độ tắt tiếng mặc định
+        
+        // Tự động phát khi tải xong
+        video.addEventListener('loadeddata', function() {
+            video.play().catch(error => {
+                console.log('Tự động phát bị chặn, yêu cầu tương tác');
+            });
+        });
+
+        // Bật âm thanh khi click
+        video.addEventListener('click', function() {
+            video.muted = false;
+            });
+        }
+    });
+</script>
+{% endblock %}

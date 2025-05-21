@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics - Driver Drowsiness Detection{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<style>
+    .badge.bg-warning {
+        color: #212529;
+    }
+    .processing-spinner {
+        display: inline-block;
+        width: 1rem;
+        height: 1rem;
+        margin-right: 0.5rem;
+        vertical-align: middle;
+        border: 0.2em solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: spinner-border .75s linear infinite;
+    }
+    .error-message {
+        font-size: 0.75rem;
+        color: #dc3545;
+        margin-top: 0.25rem;
+        display: block;
+    }
+    .table th.sortable {
+        cursor: pointer;
+    }
+    .table th.sortable:after {
+        content: '\f0dc';
+        font-family: "Font Awesome 5 Free";
+        font-weight: 900;
+        margin-left: 5px;
+        opacity: 0.5;
+    }
+    .table th.sortable.asc:after {
+        content: '\f0de';
+        opacity: 1;
+    }
+    .table th.sortable.desc:after {
+        content: '\f0dd';
+        opacity: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Drowsiness Detection</h3>
+            <button class="btn toggle-btn" id="sidebarToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <div class="user-info">
+            <div class="user-avatar">
+                <i class="fas fa-user-circle"></i>
+            </div>
+            <div class="user-name">{{ session.username }}</div>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="menu-item" data-page="home">
+                <a href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="file-detection">
+                <a href="{{ url_for('file_detection') }}">
+                    <i class="fas fa-file-upload"></i>
+                    <span>File Detection</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="webcam-detection">
+                <a href="{{ url_for('webcam_detection') }}">
+                    <i class="fas fa-camera"></i>
+                    <span>Webcam Detection</span>
+                </a>
+            </li>
+            <li class="menu-item active" data-page="statistics">
+                <a href="{{ url_for('statistics') }}">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Statistics</span>
+                </a>
+            </li>
+            <li class="menu-item" data-page="model-info">
+                <a href="{{ url_for('model_info') }}">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Model Info</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="{{ url_for('logout') }}">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="content-header">
+            <h1>Detection Statistics</h1>
+            <p>View and analyze your detection history</p>
+        </div>
+
+        <div class="content-body">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="stats-overview">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-file-image"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>{{ detections|selectattr('detection_type', 'equalto', 'image')|list|length }}</h3>
+                                <p>Images Analyzed</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-file-video"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>{{ detections|selectattr('detection_type', 'equalto', 'video')|list|length }}</h3>
+                                <p>Videos Analyzed</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-camera"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>{{ detections|selectattr('detection_type', 'equalto', 'webcam')|list|length }}</h3>
+                                <p>Webcam Sessions</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>{{ detections|sum(attribute='drowsy_count') + detections|sum(attribute='yawn_count') + detections|sum(attribute='head_movement_count') }}</h3>
+                                <p>Total Alerts</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="detection-history mt-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0">Detection History</h3>
+                        <div>
+                            <button id="refreshBtn" class="btn btn-primary me-2">
+                                <i class="fas fa-sync-alt me-1"></i> Refresh
+                            </button>
+                            <a href="{{ url_for('download_all_results') }}" class="btn btn-success">
+                                <i class="fas fa-download me-2"></i> Download All Results
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        {% if detections %}
+                            <div class="table-responsive">
+                                <table class="table table-striped" id="detectionsTable">
+                                    <thead>
+                                        <tr>
+                                            <th class="sortable" data-sort="id">ID</th>
+                                            <th class="sortable" data-sort="type">Type</th>
+                                            <th class="sortable" data-sort="timestamp">Timestamp</th>
+                                            <th class="sortable" data-sort="status">Status</th>
+                                            <th class="sortable" data-sort="drowsy">Drowsy</th>
+                                            <th class="sortable" data-sort="yawn">Yawn</th>
+                                            <th class="sortable" data-sort="head">Head Movement</th>
+                                            <th class="sortable" data-sort="fps">Avg FPS</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for detection in detections %}
+                                        <tr data-detection-id="{{ detection.id }}" class="{{ 'processing-row' if detection.status == 'processing' }}">
+                                            <td>{{ detection.id }}</td>
+                                            <td>
+                                                <span class="badge bg-{{ 'primary' if detection.detection_type == 'image' else 'success' if detection.detection_type == 'video' else 'info' }}">
+                                                    {{ detection.detection_type|capitalize }}
+                                                </span>
+                                            </td>
+                                            <td>{{ detection.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                            <td class="status-cell">
+                                                {% if detection.status == 'processing' %}
+                                                <span class="badge bg-warning">
+                                                    <span class="processing-spinner"></span>
+                                                    Processing
+                                                </span>
+                                                {% elif detection.status == 'completed' %}
+                                                <span class="badge bg-success">Completed</span>
+                                                {% elif detection.status == 'failed' %}
+                                                <span class="badge bg-danger">Failed</span>
+                                                {% if detection.error_message %}
+                                                <span class="error-message">{{ detection.error_message }}</span>
+                                                {% endif %}
+                                                {% else %}
+                                                <span class="badge bg-secondary">Pending</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="drowsy-count">{{ detection.drowsy_count }}</td>
+                                            <td class="yawn-count">{{ detection.yawn_count }}</td>
+                                            <td class="head-count">{{ detection.head_movement_count }}</td>
+                                            <td class="fps-value">{{ "%.2f"|format(detection.avg_fps) }}</td>
+                                            <td>
+                                                <div class="btn-group">
+                                                    {% if detection.status == 'completed' %}
+                                                    <a href="{{ url_for('view_result', detection_id=detection.id) }}" class="btn btn-sm btn-primary view-btn">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    <a href="{{ url_for('download_result', detection_id=detection.id) }}" class="btn btn-sm btn-success download-btn">
+                                                        <i class="fas fa-download"></i>
+                                                    </a>
+                                                    {% else %}
+                                                    <button class="btn btn-sm btn-secondary" disabled>
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-secondary" disabled>
+                                                        <i class="fas fa-download"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                No detection history found. Start by uploading an image/video or using webcam detection.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script>
+    // Auto-refresh processing items
+    document.addEventListener('DOMContentLoaded', function() {
+        // Check for processing items
+        const processingRows = document.querySelectorAll('.processing-row');
+        
+        if (processingRows.length > 0) {
+            // Set up polling for processing items
+            const checkProcessingStatus = async () => {
+                for (const row of processingRows) {
+                    const detectionId = row.getAttribute('data-detection-id');
+                    try {
+                        const response = await fetch(`/check_processing_status/${detectionId}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            updateRowStatus(row, data);
+                        }
+                    } catch (error) {
+                        console.error('Error checking status:', error);
+                    }
+                }
+            };
+            
+            // Poll every 3 seconds
+            const intervalId = setInterval(checkProcessingStatus, 3000);
+            
+            // Clear interval when leaving the page
+            window.addEventListener('beforeunload', () => {
+                clearInterval(intervalId);
+            });
+            
+            // Initial check
+            checkProcessingStatus();
+        }
+        
+        // Manual refresh button
+        document.getElementById('refreshBtn').addEventListener('click', function() {
+            window.location.reload();
+        });
+        
+        // Table sorting functionality
+        const table = document.getElementById('detectionsTable');
+        if (table) {
+            const headers = table.querySelectorAll('th.sortable');
+            let currentSort = { column: 'id', direction: 'desc' };
+            
+            // Initial sort by ID descending
+            sortTable('id', 'desc');
+            
+            headers.forEach(header => {
+                header.addEventListener('click', function() {
+                    const column = this.getAttribute('data-sort');
+                    let direction = 'asc';
+                    
+                    // Toggle direction if already sorted by this column
+                    if (currentSort.column === column) {
+                        direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                    }
+                    
+                    // Update sort state
+                    currentSort = { column, direction };
+                    
+                    // Remove sort classes from all headers
+                    headers.forEach(h => {
+                        h.classList.remove('asc', 'desc');
+                    });
+                    
+                    // Add sort class to current header
+                    this.classList.add(direction);
+                    
+                    // Sort the table
+                    sortTable(column, direction);
+                });
+            });
+            
+            // Initial sort indicator
+            const idHeader = table.querySelector('th[data-sort="id"]');
+            if (idHeader) {
+                idHeader.classList.add('desc');
+            }
+        }
+    });
+    
+    // Function to update row based on status
+    function updateRowStatus(row, data) {
+        const statusCell = row.querySelector('.status-cell');
+        const drowsyCell = row.querySelector('.drowsy-count');
+        const yawnCell = row.querySelector('.yawn-count');
+        const headCell = row.querySelector('.head-count');
+        const fpsCell = row.querySelector('.fps-value');
+        const actionsCell = row.querySelector('.btn-group');
+        
+        // Update status
+        if (data.status === 'completed') {
+            statusCell.innerHTML = '<span class="badge bg-success">Completed</span>';
+            
+            // Update counts
+            drowsyCell.textContent = data.drowsy_count;
+            yawnCell.textContent = data.yawn_count;
+            headCell.textContent = data.head_movement_count;
+            fpsCell.textContent = parseFloat(data.avg_fps).toFixed(2);
+            
+            // Update actions
+            const detectionId = row.getAttribute('data-detection-id');
+            actionsCell.innerHTML = `
+                <a href="/view_result/${detectionId}" class="btn btn-sm btn-primary view-btn">
+                    <i class="fas fa-eye"></i>
+                </a>
+                <a href="/download_result/${detectionId}" class="btn btn-sm btn-success download-btn">
+                    <i class="fas fa-download"></i>
+                </a>
+            `;
+            
+            // Remove processing class
+            row.classList.remove('processing-row');
+            
+        } else if (data.status === 'failed') {
+            let errorHtml = '<span class="badge bg-danger">Failed</span>';
+            if (data.error_message) {
+                errorHtml += `<span class="error-message">${data.error_message}</span>`;
+            }
+            statusCell.innerHTML = errorHtml;
+            
+            // Remove processing class
+            row.classList.remove('processing-row');
+        }
+    }
+    
+    // Function to sort table
+    function sortTable(column, direction) {
+          const table = document.getElementById('detectionsTable');
+          const tbody = table.querySelector('tbody');
+          const rows = Array.from(tbody.querySelectorAll('tr'));
+          
+          // Sort rows based on column and direction
+          rows.sort((a, b) => {
+              let valueA, valueB;
+              
+              if (column === 'id') {
+                  valueA = parseInt(a.cells[0].textContent);
+                  valueB = parseInt(b.cells[0].textContent);
+              } else if (column === 'type') {
+                  valueA = a.cells[1].textContent.trim();
+                  valueB = b.cells[1].textContent.trim();
+              } else if (column === 'timestamp') {
+                  valueA = new Date(a.cells[2].textContent);
+                  valueB = new Date(b.cells[2].textContent);
+              } else if (column === 'status') {
+                  valueA = a.cells[3].textContent.trim();
+                  valueB = b.cells[3].textContent.trim();
+              } else if (column === 'drowsy') {
+                  valueA = parseInt(a.cells[4].textContent) || 0;
+                  valueB = parseInt(b.cells[4].textContent) || 0;
+              } else if (column === 'yawn') {
+                  valueA = parseInt(a.cells[5].textContent) || 0;
+                  valueB = parseInt(b.cells[5].textContent) || 0;
+              } else if (column === 'head') {
+                  valueA = parseInt(a.cells[6].textContent) || 0;
+                  valueB = parseInt(b.cells[6].textContent) || 0;
+              } else if (column === 'fps') {
+                  valueA = parseFloat(a.cells[7].textContent) || 0;
+                  valueB = parseFloat(b.cells[7].textContent) || 0;
+              }
+              
+              // Compare values based on direction
+              if (direction === 'asc') {
+                  if (valueA < valueB) return -1;
+                  if (valueA > valueB) return 1;
+                  return 0;
+              } else {
+                  if (valueA > valueB) return -1;
+                  if (valueA < valueB) return 1;
+                  return 0;
+              }
+          });
+          
+          // Reorder rows in the table
+          rows.forEach(row => {
+              tbody.appendChild(row);
+          });
+      }
+  </script>
+  {% endblock %}
+                
