@@ -31,6 +31,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/users.db'
 os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'images'), exist_ok=True)
 os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'videos'), exist_ok=True)
 os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'results'), exist_ok=True)
+os.makedirs('instance', exist_ok=True)
 
 # Initialize database
 db = SQLAlchemy(app)
