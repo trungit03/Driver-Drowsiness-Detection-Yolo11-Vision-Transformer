@@ -324,13 +324,13 @@ def process_detection(model, file_path, result_path, detection_id):
     """Process detection in a separate thread"""
     temp_dir = None
     try:
-        # [1] Cập nhật trạng thái processing
+        # Update processing status
         with app.app_context():
             detection = Detection.query.get(detection_id)
             detection.status = 'processing'
             db.session.commit()
 
-        # [2] Chạy detection và thu thập dữ liệu
+        # Run detection
         stats = detect(
             model, 
             file_path,
@@ -340,72 +340,70 @@ def process_detection(model, file_path, result_path, detection_id):
             play_audio=False
         )
 
-        # [3] Kiểm tra loại file
+        # Check file type
         with app.app_context():
             detection = Detection.query.get(detection_id)
-            # Chỉ xử lý audio khi là file video, bỏ qua nếu là ảnh
+            # Only process audio for video files
             if detection.detection_type == 'video':
-                # [4] Tạo thư mục tạm
+                # Create temp directory
                 temp_dir = tempfile.mkdtemp()
                 temp_audio_path = os.path.join(temp_dir, "alarm_track.wav")
                 temp_video_path = os.path.join(temp_dir, "output.mp4")
 
-                # [5] Tạo audio cảnh báo
-                # Lấy timestamps từ kết quả detection
+                # Get timestamps from detection results
                 drowsy_ts = stats.get('drowsy_timestamps', [])
                 yawn_ts = stats.get('yawn_timestamps', [])
                 head_ts = stats.get('head_timestamps', [])
 
-                # Tạo audio track với độ dài video
+                # Create base audio track
                 total_duration = (stats['total_frames'] / stats['avg_fps']) if stats['avg_fps'] > 0 else 0
                 base_audio = AudioSegment.silent(duration=int(total_duration * 1000))
                 
-                # Tải các file âm thanh cảnh báo khác nhau
+                # Load alarm sounds
                 drowsy_alarm = AudioSegment.from_wav(os.path.join(app.root_path, 'static', 'alarm.wav'))
                 yawn_alarm = AudioSegment.from_wav(os.path.join(app.root_path, 'static', 'alarm.wav'))
                 head_alarm = AudioSegment.from_wav(os.path.join(app.root_path, 'static', 'alarm.wav'))
                 
-                # Xử lý từng loại cảnh báo riêng biệt
-                # Tạo danh sách các khoảng thời gian đã được sử dụng để tránh chồng chéo
+                # Track used time ranges
                 used_time_ranges = []
                 
-                # Xử lý cảnh báo drowsy (ưu tiên cao nhất)
+                # Process drowsy alarms
                 for ts in drowsy_ts:
                     start_ms = int(ts * 1000)
-                    end_ms = start_ms + 3000  # Drowsy alarm kéo dài 3s
+                    end_ms = start_ms + 3000  # 3s duration
                     
-                    # Kiểm tra xem khoảng thời gian này đã được sử dụng chưa
+                    # Check if this time period has been used
                     if not any(start < end_ms and end > start_ms for start, end in used_time_ranges):
                         if start_ms + 3000 <= len(base_audio):
                             base_audio = base_audio.overlay(drowsy_alarm[:3000], position=start_ms)
                             used_time_ranges.append((start_ms, end_ms))
                 
-                # Xử lý cảnh báo yawn (ưu tiên thứ hai)
+                # Process yawn alarms
                 for ts in yawn_ts:
                     start_ms = int(ts * 1000)
                     end_ms = start_ms + 1000  # Yawn alarm kéo dài 1s
                     
-                    # Kiểm tra xem khoảng thời gian này đã được sử dụng chưa
+                    # Check if this time period has been used
                     if not any(start < end_ms and end > start_ms for start, end in used_time_ranges):
                         if start_ms + 1000 <= len(base_audio):
                             base_audio = base_audio.overlay(yawn_alarm[:1000], position=start_ms)
                             used_time_ranges.append((start_ms, end_ms))
                 
-                # Xử lý cảnh báo head movement (ưu tiên thấp nhất)
+                # Process head alarms
                 for ts in head_ts:
                     start_ms = int(ts * 1000)
-                    end_ms = start_ms + 1000  # Head alarm kéo dài 1s
+                    end_ms = start_ms + 1000  #  1s duration
                     
-                    # Kiểm tra xem khoảng thời gian này đã được sử dụng chưa
+                    # Check if this time period has been used
                     if not any(start < end_ms and end > start_ms for start, end in used_time_ranges):
                         if start_ms + 1000 <= len(base_audio):
                             base_audio = base_audio.overlay(head_alarm[:1000], position=start_ms)
                             used_time_ranges.append((start_ms, end_ms))
 
-                # Xuất file audio tạm
+                # Export  temporary audio
                 base_audio.export(temp_audio_path, format="wav")
 
-                # [6] Merge audio vào video
+                # Merge audio 
                 with VideoFileClip(result_path) as video:
                     with AudioFileClip(temp_audio_path) as audio:
                         final = video.set_audio(audio)
@@ -418,10 +416,10 @@ def process_detection(model, file_path, result_path, detection_id):
                             ffmpeg_params=['-movflags', '+faststart']
                         )
 
-                # [7] Thay thế file kết quả
+                # Replace original output
                 shutil.move(temp_video_path, result_path)
 
-        # [8] Cập nhật database
+        # Update database
         with app.app_context():
             detection = Detection.query.get(detection_id)
             detection.status = 'completed'
@@ -441,12 +439,11 @@ def process_detection(model, file_path, result_path, detection_id):
             db.session.commit()
 
     finally:
-        # [9] Dọn dẹp tài nguyên
         if temp_dir and os.path.exists(temp_dir):
             try:
                 shutil.rmtree(temp_dir)
             except Exception as e:
-                app.logger.error(f"Lỗi dọn dẹp: {str(e)}")
+                app.logger.error(f"Cleanup Error: {str(e)}")
 
 
 
@@ -541,7 +538,7 @@ def start_webcam_detection():
     if 'user_id' not in session:
         return jsonify({'error': 'Not logged in'}), 401
     
-    # Tạo record cho session webcam này
+    # Create record
     detection = Detection(
         user_id=session['user_id'],
         filename='webcam_session',
@@ -552,7 +549,7 @@ def start_webcam_detection():
     db.session.add(detection)
     db.session.commit()
     
-    # Tạo output path
+    # Create output
     result_filename = f"webcam_{detection.id}.mp4"
     result_path = os.path.join(app.config['UPLOAD_FOLDER'], 'results', result_filename)
     detection.result_path = result_path
@@ -571,12 +568,12 @@ def stop_webcam_detection():
     if 'user_id' not in session:
         return jsonify({'error': 'Not logged in'}), 401
     
-    # Đặt cờ dừng để kết thúc thread detection
+    # Set flag to stop thread detection
     stop_threads = True
     
     current_frame = None
     
-    # Cập nhật detection record nếu có active
+    # Update detection record if active
     if request.json and 'detection_id' in request.json:
         detection_id = request.json['detection_id']
         detection = Detection.query.get(detection_id)
@@ -586,9 +583,6 @@ def stop_webcam_detection():
     
     return jsonify({'message': 'Webcam detection stopped'})
 
-
-
-# app.py (sửa hàm webcam_detection_thread)
 def webcam_detection_thread(detection_id):
     global current_frame, stop_threads
     
@@ -608,7 +602,7 @@ def webcam_detection_thread(detection_id):
                 if stats.get('new_head', False):
                     app.config['head_count'] += 1
         
-        # Gọi hàm detect và lưu kết quả trả về
+        # Detect ()
         stats = detect(
             model=model,
             source=0,
@@ -618,7 +612,7 @@ def webcam_detection_thread(detection_id):
             stop_flag=lambda: stop_threads
         )
         
-        # Cập nhật thông số vào database
+        # Update database
         with app.app_context():
             detection = Detection.query.get(detection_id)
             if detection:
@@ -661,26 +655,26 @@ def save_webcam_recording():
         return jsonify({'error': 'Missing required data'}), 400
     
     try:
-        # Lấy bản ghi detection từ database
+        # Get detection record
         detection = Detection.query.get_or_404(detection_id)
         
-        # Kiểm tra quyền sở hữu
+        # Check owner
         if detection.user_id != session['user_id']:
             return jsonify({'error': 'Access denied'}), 403
         
-        # Lưu bản ghi video từ dữ liệu base64
+        # Save base64 recording
         recording_filename = f"webcam_recording_{detection_id}.webm"
         recording_path = os.path.join(app.config['UPLOAD_FOLDER'], 'results', recording_filename)
         os.makedirs(os.path.dirname(recording_path), exist_ok=True)
         
-        # Xử lý dữ liệu base64
+        # Process base64 data
         if ',' in recording_data:
             recording_data = recording_data.split(',')[1]
         
         with open(recording_path, 'wb') as f:
             f.write(base64.b64decode(recording_data))
         
-        # Chuyển đổi sang định dạng MP4
+        # Convert to MP4
         mp4_path = os.path.join(app.config['UPLOAD_FOLDER'], 'results', f"webcam_recording_{detection_id}.mp4")
         result_path = mp4_path
         
@@ -699,62 +693,62 @@ def save_webcam_recording():
             app.logger.error(f"Lỗi chuyển đổi video: {str(e)}")
             result_path = recording_path
 
-        # Xử lý âm thanh cảnh báo
+        # Process Audio
         try:
             from pydub import AudioSegment
             import json
 
-            # Lấy timestamps từ database
+            # Get timestamps from database
             drowsy_ts = json.loads(detection.drowsy_timestamps or '[]')
             yawn_ts = json.loads(detection.yawn_timestamps or '[]')
             head_ts = json.loads(detection.head_timestamps or '[]')
 
-            # Tạo audio track với độ dài video
+            # Create audio track 
             total_duration = (detection.total_frames / detection.avg_fps) if detection.avg_fps > 0 else 0
             base_audio = AudioSegment.silent(duration=int(total_duration * 1000))
             
-            # Tải các file âm thanh cảnh báo
+            # Load audio files
             drowsy_alarm = AudioSegment.from_wav(os.path.join(app.root_path, 'static', 'alarm.wav'))
             yawn_alarm = AudioSegment.from_wav(os.path.join(app.root_path, 'static', 'alarm.wav'))
             head_alarm = AudioSegment.from_wav(os.path.join(app.root_path, 'static', 'alarm.wav'))
             
-            # Danh sách khoảng thời gian đã được sử dụng
+            # List of time periods used
             used_time_ranges = []
             
-            # Xử lý cảnh báo drowsy (ưu tiên cao nhất)
+            # Process drowsy alarms
             for ts in drowsy_ts:
                 start_ms = int(ts * 1000)
-                end_ms = start_ms + 3000  # Drowsy alarm kéo dài 3s
+                end_ms = start_ms + 3000  # 3s duration
                 
-                # Kiểm tra xem khoảng thời gian này đã được sử dụng chưa
+                # Check if this time period has been used
                 if not any(start < end_ms and end > start_ms for start, end in used_time_ranges):
                     if start_ms + 3000 <= len(base_audio):
                         base_audio = base_audio.overlay(drowsy_alarm[:3000], position=start_ms)
                         used_time_ranges.append((start_ms, end_ms))
             
-            # Xử lý cảnh báo yawn (ưu tiên thứ hai)
+            # Process yawn alarms
             for ts in yawn_ts:
                 start_ms = int(ts * 1000)
-                end_ms = start_ms + 1000  # Yawn alarm kéo dài 1s
+                end_ms = start_ms + 1000  # 1s duration
                 
-                # Kiểm tra xem khoảng thời gian này đã được sử dụng chưa
+                # Check if this time period has been used
                 if not any(start < end_ms and end > start_ms for start, end in used_time_ranges):
                     if start_ms + 1000 <= len(base_audio):
                         base_audio = base_audio.overlay(yawn_alarm[:1000], position=start_ms)
                         used_time_ranges.append((start_ms, end_ms))
             
-            # Xử lý cảnh báo head movement (ưu tiên thấp nhất)
+            # Process head alarms
             for ts in head_ts:
                 start_ms = int(ts * 1000)
-                end_ms = start_ms + 1000  # Head alarm kéo dài 1s
+                end_ms = start_ms + 1000  # 1s duration
                 
-                # Kiểm tra xem khoảng thời gian này đã được sử dụng chưa
+                # Check if this time period has been used
                 if not any(start < end_ms and end > start_ms for start, end in used_time_ranges):
                     if start_ms + 1000 <= len(base_audio):
                         base_audio = base_audio.overlay(head_alarm[:1000], position=start_ms)
                         used_time_ranges.append((start_ms, end_ms))
 
-            # Merge audio vào video
+            # Merge audio 
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_audio:
                 base_audio.export(tmp_audio.name, format="wav")
                 
@@ -772,9 +766,9 @@ def save_webcam_recording():
                 os.replace(final_output, result_path)
 
         except Exception as e:
-            app.logger.error(f"Lỗi ghép âm thanh: {str(e)}")
+            app.logger.error(f"Error When Merging Audio: {str(e)}")
 
-        # Cập nhật database
+        # Update database
         detection.result_path = result_path
         detection.drowsy_count = stats.get('drowsy_detections', 0)
         detection.yawn_count = stats.get('yawn_detections', 0)
@@ -782,19 +776,19 @@ def save_webcam_recording():
         detection.status = 'completed'
         db.session.commit()
 
-        # Tạo symlink cho static
+        # Create symlink
         static_dir = os.path.join(app.root_path, 'static', 'results')
         os.makedirs(static_dir, exist_ok=True)
         static_path = os.path.join(static_dir, f"webcam_{detection_id}_{int(time.time())}.mp4")
         shutil.copy2(result_path, static_path)
 
         return jsonify({
-            'message': 'Lưu bản ghi thành công',
+            'message': 'Save Successfully',
             'result_path': result_path
         })
 
     except Exception as e:
-        app.logger.error(f"Lỗi hệ thống: {str(e)}")
+        app.logger.error(f"System Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 
@@ -825,8 +819,6 @@ def run_webcam_detection():
         flash('Please login first', 'warning')
         return redirect(url_for('login'))
     
-    # This route is now just for backward compatibility
-    # The actual webcam handling is done in JavaScript
     return redirect(url_for('webcam_detection'))
 
 @app.route('/statistics')
@@ -858,19 +850,19 @@ def view_result(detection_id):
     result_url = None
     
     if result_path and os.path.exists(result_path):
-        # Tạo thư mục static nếu chưa tồn tại
+        # Create static if not exist
         static_results_dir = os.path.join(app.root_path, 'static', 'results')
         os.makedirs(static_results_dir, exist_ok=True)
         
-        # Tạo tên file duy nhất
+        # Create filename
         filename = f"{detection.id}_{os.path.basename(result_path)}"
         static_result_path = os.path.join(static_results_dir, filename)
         
         try:
-            # Luôn copy file mới mỗi lần xem
+            # Copy new files
             shutil.copy2(result_path, static_result_path)
             
-            # Thêm timestamp để tránh cache
+            # Add timestamp 
             timestamp = int(os.path.getmtime(static_result_path))
             result_url = url_for('static', filename=f'results/{filename}') + f'?v={timestamp}'
 
@@ -886,7 +878,7 @@ def view_result(detection_id):
             if detection.detection_type in ['video', 'webcam']:
                 try:
                     import subprocess
-                    # Luôn convert sang MP4 với định dạng chuẩn cho web
+                    # Convert mp4
                     mp4_path = os.path.splitext(static_result_path)[0] + '_converted.mp4'
                     if not os.path.exists(mp4_path):
                         subprocess.run([
@@ -908,23 +900,7 @@ def view_result(detection_id):
                 except Exception as e:
                     app.logger.error(f"Lỗi convert video: {str(e)}")
                     result_url = url_for('static', filename=f'results/{filename}')
-                        # try:
-                    #     # Try to convert to MP4 using ffmpeg if available
-                    #     import subprocess
-                    #     mp4_path = os.path.splitext(static_result_path)[0] + '.mp4'
-                    #     if not os.path.exists(mp4_path):
-                    #         subprocess.run([
-                    #             'ffmpeg', '-i', static_result_path, 
-                    #             '-c:v', 'libx264', '-preset', 'fast',
-                    #             '-c:a', 'aac', '-movflags', '+faststart',
-                    #             mp4_path
-                    #         ], check=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-                            
-                    #         if os.path.exists(mp4_path):
-                    #             result_url = url_for('static', filename=f'results/{os.path.basename(mp4_path)}')
-                    # except (ImportError, subprocess.SubprocessError, FileNotFoundError) as e:
-                    #     app.logger.error(f"Video conversion error: {e}")
-    
+
     return render_template('view_result.html', 
                            detection=detection, 
                            result_url=result_url)
