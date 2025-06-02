@@ -1,6 +1,6 @@
 # Driver-Drowsiness-Detection-Yolov8
 
-This project implements a real-time drowsiness detection system using computer vision and machine learning techniques. The system monitors facial features and eye movements to detect signs of drowsiness and provides immediate alerts to prevent accidents.
+This project implements a real-time drowsiness detection system. The system monitors facial states to detect signs of drowsiness and provides immediate alerts to prevent accidents.
 
 ## Dataset
 
