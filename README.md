@@ -6,14 +6,14 @@ This project implements a real-time drowsiness detection system using computer v
 
 Before running the application, you need to prepare your dataset:
 
-**Dataset Link:** [[Dataset](https://universe.roboflow.com/karthik-madhvan/drowsiness-detection-xsriz/dataset/1)]
+**Dataset Link:** [Dataset](https://universe.roboflow.com/karthik-madhvan/drowsiness-detection-xsriz/dataset/1)
 
 ## Installation & Setup
 
 ### 1. Clone the Repository
 
 ```bash
-git clone <your-repository-url>
+git clone https://github.com/trungit03/Driver-Drowsiness-Detection-Yolov8.git
 ```
 
 ### 2. Create Virtual Environment
