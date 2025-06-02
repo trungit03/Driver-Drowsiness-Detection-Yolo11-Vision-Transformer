@@ -40,8 +40,10 @@ pip install -r requirements.txt
 
 Before running the application, you need to train the YOLO model with your dataset:
 
+Training Platform: Kaggle with GPU T4 x2
+
 ```bash
-yolo train data=data.yaml model=yolov8s.pt epochs=100 close_mosaic=20 imgsz=640 pretrained=True
+yolo train data=data.yaml model=yolov8s.pt epochs=100 batch=64 close_mosaic=20 imgsz=640 pretrained=True device='0,1'
 ```
 
 ## Usage
