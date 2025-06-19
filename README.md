@@ -88,7 +88,7 @@ python detector.py
 ```
 <hr>
 
-**ViT**
+**ViT + YOLO11**
 ```bash
 python yolo_vit.py --model models_yolo11/best.pt --vit_model best_vit_drowsiness_model.pth --source 0
 ```
