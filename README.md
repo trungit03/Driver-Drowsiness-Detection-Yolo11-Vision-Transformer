@@ -43,8 +43,6 @@ pip install -r requirements.txt
 
 ## Model Training
 
-Before running the application, you need to train the YOLO model with your dataset:
-
 Training Platform: Kaggle with GPU T4 x2
 
 For YOLO
