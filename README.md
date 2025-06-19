@@ -1,4 +1,4 @@
-# Driver-Drowsiness-Detection-Yolov8
+# Driver-Drowsiness-Detection-YOLO11-ViT
 
 This project implements a real-time drowsiness detection system. The system monitors facial states to detect signs of drowsiness and provides immediate alerts to prevent accidents.
 
@@ -44,12 +44,14 @@ Before running the application, you need to train the YOLO model with your datas
 
 Training Platform: Kaggle with GPU T4 x2
 
+For YOLO
 ```bash
 yolo train data=data.yaml model=yolov11s.pt epochs=100 batch=64 close_mosaic=20 imgsz=640 pretrained=True device='0,1'
 ```
 
 ## Usage
 
+#YOLO
 ### Method 1: Run Flask Web Application
 
 1. Start the Flask server:
@@ -79,6 +81,7 @@ python detector.py --source "path/to/your/video.mp4"
 ```bash
 python detector.py
 ```
+##ViT
 ```bash
 python yolo_vit.py --model best,pt --vit_model best_vit_drowsiness_model (1).pth --source 0
 ```
