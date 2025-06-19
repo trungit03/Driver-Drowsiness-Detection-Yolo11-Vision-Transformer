@@ -15,7 +15,7 @@ Train ViT
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/trungit03/Driver-Drowsiness-Detection-Yolov8.git
+git clone https://github.com/trungit03/Driver-Drowsiness-Detection-Yolo11-Vision-Transformer.git
 ```
 
 ### 2. Create Virtual Environment
@@ -51,7 +51,7 @@ yolo train data=data.yaml model=yolov11s.pt epochs=100 batch=64 close_mosaic=20 
 
 ## Usage
 
-#YOLO
+For YOLO
 ### Method 1: Run Flask Web Application
 
 1. Start the Flask server:
@@ -81,9 +81,9 @@ python detector.py --source "path/to/your/video.mp4"
 ```bash
 python detector.py
 ```
-##ViT
+**ViT
 ```bash
-python yolo_vit.py --model best,pt --vit_model best_vit_drowsiness_model (1).pth --source 0
+python yolo_vit.py --model best,pt --vit_model best_vit_drowsiness_model.pth --source 0
 ```
 
 ## Features
