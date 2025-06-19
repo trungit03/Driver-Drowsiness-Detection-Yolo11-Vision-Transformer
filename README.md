@@ -51,6 +51,10 @@ For YOLO
 ```bash
 yolo train data=data.yaml model=yolov11s.pt epochs=100 batch=64 close_mosaic=20 imgsz=640 pretrained=True device='0,1'
 ```
+For ViT
+```
+Follow vit_train.ipynb
+```
 
 ## Usage
 
