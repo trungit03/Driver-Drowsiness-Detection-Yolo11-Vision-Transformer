@@ -85,6 +85,7 @@ python detector.py --source "path/to/your/video.mp4"
 python detector.py
 ```
 <hr>
+
 **ViT**
 ```bash
 python yolo_vit.py --model best,pt --vit_model best_vit_drowsiness_model.pth --source 0
