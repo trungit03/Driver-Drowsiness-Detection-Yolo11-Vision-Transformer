@@ -22,18 +22,18 @@ import json
 from pydub import AudioSegment
 from moviepy.editor import VideoFileClip, AudioFileClip
 # from optimize import load_model, detect
-# Initialize Flask app
+
 app = Flask(__name__)
 app.config.from_object('config.Config')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/users.db'
 
-# Ensure upload directories exist
+
 os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'images'), exist_ok=True)
 os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'videos'), exist_ok=True)
 os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'results'), exist_ok=True)
 os.makedirs('instance', exist_ok=True)
 
-# Initialize database
+
 db = SQLAlchemy(app)
 
 # Define User model
@@ -72,7 +72,6 @@ class Detection(db.Model):
 with app.app_context():
     db.create_all()
     
-    # Add default users if they don't exist
     if not User.query.filter_by(username='admin').first():
         admin = User('admin', 'admin123')
         db.session.add(admin)
@@ -83,7 +82,7 @@ with app.app_context():
     
     db.session.commit()
 
-# Load YOLO model
+# YOLO model
 model = load_model(app.config['MODEL_PATH'])
 
 # Helper functions
@@ -99,7 +98,6 @@ def get_file_type(filename):
     return None
 
 def update_progress(detection_id, progress):
-    """Update the progress of a detection task"""
     with app.app_context():
         detection = Detection.query.get(detection_id)
         if detection:
@@ -167,7 +165,6 @@ def dashboard():
         flash('Please login first', 'warning')
         return redirect(url_for('login'))
     
-    # Model information to display on dashboard
     model_info = {
         'name': 'YOLOv8 Drowsiness Detection',
         'description': 'This model detects driver drowsiness based on eye closure, yawning, and head movements.',
@@ -194,7 +191,6 @@ def file_detection():
         return redirect(url_for('login'))
     
     if request.method == 'POST':
-        # Check if a file was uploaded
         if 'file' not in request.files:
             return jsonify({'error': 'No file part'})
         
@@ -204,25 +200,21 @@ def file_detection():
             return jsonify({'error': 'No selected file'})
         
         if file and allowed_file(file.filename):
-            # Save the uploaded file
             filename = secure_filename(file.filename)
             unique_filename = f"{uuid.uuid4()}_{filename}"
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
             file.save(file_path)
             
-            # Determine if it's an image or video
             file_ext = os.path.splitext(filename)[1].lower()
             if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
                 detection_type = 'image'
             else:
                 detection_type = 'video'
             
-            # Generate a unique filename for the result
             result_filename = f"result_{unique_filename}"
             result_path = os.path.join(app.config['UPLOAD_FOLDER'], 'results', result_filename)
             
             try:
-                # Create detection record first
                 detection = Detection(
                     user_id=session['user_id'],
                     filename=filename,
@@ -233,7 +225,6 @@ def file_detection():
                 db.session.add(detection)
                 db.session.commit()
                 
-                # Start processing in a separate thread
                 thread = threading.Thread(
                     target=process_detection,
                     args=(model, file_path, result_path, detection.id)
@@ -255,7 +246,6 @@ def file_detection():
     return render_template('file_detection.html')
 @app.route('/detection_progress/<int:detection_id>')
 def detection_progress(detection_id):
-    """Get the progress of a detection task"""
     if 'user_id' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
     
@@ -274,7 +264,6 @@ def detection_progress(detection_id):
 
 @app.route('/detection_result/<int:detection_id>')
 def detection_result(detection_id):
-    """Get the result of a detection task"""
     if 'user_id' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
     
@@ -285,14 +274,11 @@ def detection_result(detection_id):
     if detection.user_id != session['user_id']:
         return jsonify({'error': 'Unauthorized'}), 403
     
-    # Get the relative path for the result file
     result_url = None
     if detection.result_path:
-        # Convert absolute path to URL path
         result_filename = os.path.basename(detection.result_path)
         result_url = url_for('static', filename=f'uploads/results/{result_filename}')
     
-    # Parse timestamps from JSON strings
     try:
         drowsy_timestamps = json.loads(detection.drowsy_timestamps)
         yawn_timestamps = json.loads(detection.yawn_timestamps)
@@ -321,16 +307,13 @@ def detection_result(detection_id):
 
 
 def process_detection(model, file_path, result_path, detection_id):
-    """Process detection in a separate thread"""
     temp_dir = None
     try:
-        # Update status to processing
         with app.app_context():
             detection = Detection.query.get(detection_id)
             detection.status = 'processing'
             db.session.commit()
 
-        # Run detection and collect stats
         stats = detect(
             model,
             file_path,
@@ -340,48 +323,39 @@ def process_detection(model, file_path, result_path, detection_id):
             play_audio=False
         )
 
-        # Check file type
         with app.app_context():
             detection = Detection.query.get(detection_id)
-            # Only process audio if file is a video (skip for images)
             if detection.detection_type == 'video':
-                # Create temporary directory
                 temp_dir = tempfile.mkdtemp()
                 temp_audio_path = os.path.join(temp_dir, "alarm_track.wav")
                 temp_video_path = os.path.join(temp_dir, "output_with_audio.mp4")
 
-                # Generate warning audio
                 drowsy_ts = stats.get('drowsy_timestamps', [])
                 yawn_ts = stats.get('yawn_timestamps', [])
                 head_ts = stats.get('head_timestamps', [])
 
                 print(f"DEBUG: Timestamps - Drowsy: {drowsy_ts}, Yawn: {yawn_ts}, Head: {head_ts}")
 
-                # Get video duration to match audio length
                 video_clip = VideoFileClip(result_path)
                 total_duration = video_clip.duration
                 video_clip.close()
 
                 print(f"DEBUG: Video duration: {total_duration}s")
 
-                # Create silent base audio matching the video length
                 base_audio = AudioSegment.silent(duration=int(total_duration * 1000))
 
-                # Load alarm sound
                 alarm_path = os.path.join(app.root_path, 'static', 'alarm.wav')
                 if not os.path.exists(alarm_path):
                     print(f"WARNING: Alarm file not found at {alarm_path}")
-                    # Use fallback sine tone
                     alarm_audio = AudioSegment.sine(440, duration=1000)  # 1s, 440Hz
                 else:
                     alarm_audio = AudioSegment.from_wav(alarm_path)
 
                 print(f"DEBUG: Alarm audio duration: {len(alarm_audio)}ms")
 
-                # Track used audio segments to avoid overlapping
                 used_time_ranges = []
 
-                # Handle drowsy warnings (highest priority - 3 seconds)
+                # Handle drowsy warnings (3s)
                 for ts in drowsy_ts:
                     start_ms = int(ts * 1000)
                     end_ms = start_ms + 3000
@@ -399,7 +373,7 @@ def process_detection(model, file_path, result_path, detection_id):
                                 used_time_ranges.append((start_ms, end_ms))
                                 print(f"DEBUG: Added drowsy alarm at {ts}s")
 
-                # Handle yawn warnings (medium priority - 1 second)
+                # Handle yawn warnings (1s)
                 for ts in yawn_ts:
                     start_ms = int(ts * 1000)
                     end_ms = start_ms + 1000
@@ -412,8 +386,8 @@ def process_detection(model, file_path, result_path, detection_id):
                                 used_time_ranges.append((start_ms, end_ms))
                                 print(f"DEBUG: Added yawn alarm at {ts}s")
 
-                # Handle head movement warnings (lowest priority - 1 second)
-                for ts in head_ts:
+                # Handle head movement warnings (1s)
+                for ts in head_ts
                     start_ms = int(ts * 1000)
                     end_ms = start_ms + 1000
 
@@ -425,18 +399,15 @@ def process_detection(model, file_path, result_path, detection_id):
                                 used_time_ranges.append((start_ms, end_ms))
                                 print(f"DEBUG: Added head alarm at {ts}s")
 
-                # Export audio track
                 base_audio.export(temp_audio_path, format="wav")
                 print(f"DEBUG: Exported audio track to {temp_audio_path}")
 
-                # Merge audio into video using moviepy
                 try:
                     video = VideoFileClip(result_path)
                     audio = AudioFileClip(temp_audio_path)
 
                     print(f"DEBUG: Video duration: {video.duration}s, Audio duration: {audio.duration}s")
 
-                    # Ensure matching durations
                     if audio.duration > video.duration:
                         audio = audio.subclip(0, video.duration)
                     elif audio.duration < video.duration:
@@ -447,10 +418,8 @@ def process_detection(model, file_path, result_path, detection_id):
                         audio.close()
                         audio = AudioFileClip(temp_audio_path)
 
-                    # Combine video and audio
                     final = video.set_audio(audio)
 
-                    # Export final video
                     final.write_videofile(
                         temp_video_path,
                         codec='libx264',
@@ -461,14 +430,12 @@ def process_detection(model, file_path, result_path, detection_id):
                         logger=None
                     )
 
-                    # Cleanup
                     video.close()
                     audio.close()
                     final.close()
 
                     print(f"DEBUG: Successfully created video with audio at {temp_video_path}")
 
-                    # [7] Replace original result file
                     if os.path.exists(temp_video_path):
                         shutil.move(temp_video_path, result_path)
                         print(f"DEBUG: Moved final video to {result_path}")
@@ -477,10 +444,8 @@ def process_detection(model, file_path, result_path, detection_id):
 
                 except Exception as video_error:
                     print(f"ERROR in video processing: {str(video_error)}")
-                    # Keep original video if any error occurs
                     pass
 
-        # [8] Update database
         with app.app_context():
             detection = Detection.query.get(detection_id)
             detection.status = 'completed'
@@ -506,7 +471,6 @@ def process_detection(model, file_path, result_path, detection_id):
             db.session.commit()
 
     finally:
-        # Cleanup resources
         if temp_dir and os.path.exists(temp_dir):
             try:
                 shutil.rmtree(temp_dir)
@@ -530,11 +494,9 @@ stop_threads = False
 
 @app.route('/video_feed/<int:detection_id>')
 def video_feed(detection_id):
-    """Video streaming route for webcam detection"""
     if 'user_id' not in session:
         return "Unauthorized", 401
     
-    # Check if detection exists and belongs to user
     detection = Detection.query.get_or_404(detection_id)
     if detection.user_id != session['user_id']:
         return "Unauthorized", 403
@@ -542,16 +504,14 @@ def video_feed(detection_id):
     def generate_frames():
         global current_frame, stop_threads
         
-        # Reset stop flag
         stop_threads = False
         current_frame = None
-        # Initialize counters for this session
+
         drowsy_count = 0
         yawn_count = 0
         head_count = 0
         frame_count = 0
         
-        # Start detection thread
         detection_thread = threading.Thread(
             target=webcam_detection_thread,
             args=(detection_id,)
@@ -563,22 +523,17 @@ def video_feed(detection_id):
             last_update_time = time.time()
             
             while not stop_threads:
-                # If we have a new frame
                 if current_frame is not None:
-                    # Encode frame as JPEG
                     ret, buffer = cv2.imencode('.jpg', current_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
                     frame_bytes = buffer.tobytes()
                     
-                    # Update detection counters based on frame content
                     frame_count += 1
                     
-                    # Update database periodically (every 2 seconds)
                     current_time = time.time()
                     if current_time - last_update_time > 2:
                         with app.app_context():
                             detection = Detection.query.get(detection_id)
                             if detection:
-                                # Update with the latest counts from the global variables
                                 detection.drowsy_count = app.config.get('drowsy_count', 0)
                                 detection.yawn_count = app.config.get('yawn_count', 0)
                                 detection.head_movement_count = app.config.get('head_count', 0)
@@ -586,15 +541,12 @@ def video_feed(detection_id):
                                 db.session.commit()
                         last_update_time = current_time
                     
-                    # Yield frame as bytes
                     yield (b'--frame\r\n'
                            b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
                 
-                # Sleep to reduce CPU load
                 time.sleep(0.01)  # ~30 FPS
                 continue
         except GeneratorExit:
-            # When client disconnects
             stop_threads = True
             current_frame = None
     
@@ -607,7 +559,6 @@ def start_webcam_detection():
     if 'user_id' not in session:
         return jsonify({'error': 'Not logged in'}), 401
     
-    # Create record for this session webcam 
     detection = Detection(
         user_id=session['user_id'],
         filename='webcam_session',
@@ -618,7 +569,6 @@ def start_webcam_detection():
     db.session.add(detection)
     db.session.commit()
     
-    # Create output path
     result_filename = f"webcam_{detection.id}.mp4"
     result_path = os.path.join(app.config['UPLOAD_FOLDER'], 'results', result_filename)
     detection.result_path = result_path
@@ -637,12 +587,10 @@ def stop_webcam_detection():
     if 'user_id' not in session:
         return jsonify({'error': 'Not logged in'}), 401
     
-    # Set to stop thread detection
     stop_threads = True
     
     current_frame = None
     
-    # Update detection
     if request.json and 'detection_id' in request.json:
         detection_id = request.json['detection_id']
         detection = Detection.query.get(detection_id)
@@ -672,7 +620,6 @@ def webcam_detection_thread(detection_id):
                 if stats.get('new_head', False):
                     app.config['head_count'] += 1
 
-        # Call the detect function and store the returned results
         stats = detect(
             model=model,
             source=0,
@@ -682,7 +629,6 @@ def webcam_detection_thread(detection_id):
             stop_flag=lambda: stop_threads
         )
 
-        # Update statistics into the database
         with app.app_context():
             detection = Detection.query.get(detection_id)
             if detection:
@@ -725,26 +671,21 @@ def save_webcam_recording():
         return jsonify({'error': 'Missing required data'}), 400
 
     try:
-        # Retrieve the detection record from the database
         detection = Detection.query.get_or_404(detection_id)
 
-        # Check ownership permission
         if detection.user_id != session['user_id']:
             return jsonify({'error': 'Access denied'}), 403
 
-        # Save video recording from base64 data
         recording_filename = f"webcam_recording_{detection_id}.webm"
         recording_path = os.path.join(app.config['UPLOAD_FOLDER'], 'results', recording_filename)
         os.makedirs(os.path.dirname(recording_path), exist_ok=True)
 
-        # Handle base64 data
         if ',' in recording_data:
             recording_data = recording_data.split(',')[1]
 
         with open(recording_path, 'wb') as f:
             f.write(base64.b64decode(recording_data))
 
-        # Convert to MP4 format
         mp4_path = os.path.join(app.config['UPLOAD_FOLDER'], 'results', f"webcam_recording_{detection_id}.mp4")
         result_path = mp4_path
 
@@ -763,60 +704,53 @@ def save_webcam_recording():
             app.logger.error(f"Video conversion error: {str(e)}")
             result_path = recording_path
 
-        # Process alert audio
         try:
             from pydub import AudioSegment
             import json
 
-            # Get timestamps from the database
             drowsy_ts = json.loads(detection.drowsy_timestamps or '[]')
             yawn_ts = json.loads(detection.yawn_timestamps or '[]')
             head_ts = json.loads(detection.head_timestamps or '[]')
 
-            # Create base audio track with the length of the video
             total_duration = (detection.total_frames / detection.avg_fps) if detection.avg_fps > 0 else 0
             base_audio = AudioSegment.silent(duration=int(total_duration * 1000))
 
-            # Load alert sound files
             drowsy_alarm = AudioSegment.from_wav(os.path.join(app.root_path, 'static', 'alarm.wav'))
             yawn_alarm = AudioSegment.from_wav(os.path.join(app.root_path, 'static', 'alarm.wav'))
             head_alarm = AudioSegment.from_wav(os.path.join(app.root_path, 'static', 'alarm.wav'))
 
-            # List of used time ranges
             used_time_ranges = []
 
-            # Handle drowsy alerts (highest priority)
+            # Handle drowsy warnings (3s)
             for ts in drowsy_ts:
                 start_ms = int(ts * 1000)
-                end_ms = start_ms + 3000  # Drowsy alarm lasts 3 seconds
+                end_ms = start_ms + 3000  
 
-                # Check if this time range is already used
                 if not any(start < end_ms and end > start_ms for start, end in used_time_ranges):
                     if start_ms + 3000 <= len(base_audio):
                         base_audio = base_audio.overlay(drowsy_alarm[:3000], position=start_ms)
                         used_time_ranges.append((start_ms, end_ms))
 
-            # Handle yawn alerts (second priority)
+            # Handle yawn warnings (1s)
             for ts in yawn_ts:
                 start_ms = int(ts * 1000)
-                end_ms = start_ms + 1000  # Yawn alarm lasts 1 second
+                end_ms = start_ms + 1000  
 
                 if not any(start < end_ms and end > start_ms for start, end in used_time_ranges):
                     if start_ms + 1000 <= len(base_audio):
                         base_audio = base_audio.overlay(yawn_alarm[:1000], position=start_ms)
                         used_time_ranges.append((start_ms, end_ms))
 
-            # Handle head movement alerts (lowest priority)
+            # Handle head movement warnings (1s)
             for ts in head_ts:
                 start_ms = int(ts * 1000)
-                end_ms = start_ms + 1000  # Head movement alarm lasts 1 second
+                end_ms = start_ms + 1000  
 
                 if not any(start < end_ms and end > start_ms for start, end in used_time_ranges):
                     if start_ms + 1000 <= len(base_audio):
                         base_audio = base_audio.overlay(head_alarm[:1000], position=start_ms)
                         used_time_ranges.append((start_ms, end_ms))
 
-            # Merge audio into video
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_audio:
                 base_audio.export(tmp_audio.name, format="wav")
 
@@ -836,7 +770,6 @@ def save_webcam_recording():
         except Exception as e:
             app.logger.error(f"Audio merging error: {str(e)}")
 
-        # Update database
         detection.result_path = result_path
         detection.drowsy_count = stats.get('drowsy_detections', 0)
         detection.yawn_count = stats.get('yawn_detections', 0)
@@ -844,7 +777,6 @@ def save_webcam_recording():
         detection.status = 'completed'
         db.session.commit()
 
-        # Create symlink for static access
         static_dir = os.path.join(app.root_path, 'static', 'results')
         os.makedirs(static_dir, exist_ok=True)
         static_path = os.path.join(static_dir, f"webcam_{detection_id}_{int(time.time())}.mp4")
@@ -868,7 +800,6 @@ def check_processing_status(detection_id):
     
     detection = Detection.query.get_or_404(detection_id)
     
-    # Check if the detection belongs to the current user
     if detection.user_id != session['user_id']:
         return jsonify({'error': 'Access denied'}), 403
     
@@ -896,7 +827,6 @@ def statistics():
         flash('Please login first', 'warning')
         return redirect(url_for('login'))
     
-    # Get all detections for the current user
     detections = Detection.query.filter_by(user_id=session['user_id']).order_by(Detection.timestamp.desc()).all()
     
     return render_template('statistics.html', detections=detections)
@@ -909,29 +839,23 @@ def view_result(detection_id):
 
     detection = Detection.query.get_or_404(detection_id)
 
-    # Check if the detection belongs to the current user
     if detection.user_id != session['user_id']:
         flash('Access denied', 'danger')
         return redirect(url_for('statistics'))
 
-    # Get the relative path for display
     result_path = detection.result_path
     result_url = None
 
     if result_path and os.path.exists(result_path):
-        # Create static/results folder if it doesn't exist
         static_results_dir = os.path.join(app.root_path, 'static', 'results')
         os.makedirs(static_results_dir, exist_ok=True)
 
-        # Generate a unique filename
         filename = f"{detection.id}_{os.path.basename(result_path)}"
         static_result_path = os.path.join(static_results_dir, filename)
 
         try:
-            # Always copy the file fresh every time it's viewed
             shutil.copy2(result_path, static_result_path)
 
-            # Add a timestamp to prevent caching
             timestamp = int(os.path.getmtime(static_result_path))
             result_url = url_for('static', filename=f'results/{filename}') + f'?v={timestamp}'
 
@@ -939,15 +863,12 @@ def view_result(detection_id):
             app.logger.error(f"Error copying result file: {e}")
             result_url = None
 
-        # If the file exists, generate the URL
         if os.path.exists(static_result_path):
             result_url = url_for('static', filename=f'results/{filename}')
 
-            # For video files, ensure proper format for web playback
             if detection.detection_type in ['video', 'webcam']:
                 try:
                     import subprocess
-                    # Always convert to MP4 with web-friendly settings
                     mp4_path = os.path.splitext(static_result_path)[0] + '_converted.mp4'
                     if not os.path.exists(mp4_path):
                         subprocess.run([
@@ -963,7 +884,6 @@ def view_result(detection_id):
                             mp4_path
                         ], check=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
-                    # Use the converted MP4 file
                     result_url = url_for('static', filename=f'results/{os.path.basename(mp4_path)}') + f'?v={timestamp}'
 
                 except Exception as e:
@@ -980,25 +900,20 @@ def download_result(detection_id):
     
     detection = Detection.query.get_or_404(detection_id)
     
-    # Check if the detection belongs to the current user
     if detection.user_id != session['user_id']:
         flash('Access denied', 'danger')
         return redirect(url_for('statistics'))
     
-    # Check if the result file exists
     if not detection.result_path or not os.path.exists(detection.result_path):
         flash('Result file not found', 'danger')
         return redirect(url_for('statistics'))
     
-    # Create a zip file containing the result
     zip_filename = f"detection_result_{detection.id}.zip"
     zip_path = os.path.join(app.config['UPLOAD_FOLDER'], 'results', zip_filename)
     
     with zipfile.ZipFile(zip_path, 'w') as zipf:
-        # Add the result file to the zip
         zipf.write(detection.result_path, os.path.basename(detection.result_path))
         
-        # Add a metadata file with detection information
         metadata_content = f"""Detection Information:
         ID: {detection.id}
         Type: {detection.detection_type}
@@ -1020,27 +935,22 @@ def download_all_results():
         flash('Please login first', 'warning')
         return redirect(url_for('login'))
     
-    # Get all detections for the current user
     detections = Detection.query.filter_by(user_id=session['user_id']).all()
     
     if not detections:
         flash('No detection results found', 'warning')
         return redirect(url_for('statistics'))
     
-    # Create a zip file containing all results
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     zip_filename = f"all_detection_results_{timestamp}.zip"
     zip_path = os.path.join(app.config['UPLOAD_FOLDER'], 'results', zip_filename)
     
     with zipfile.ZipFile(zip_path, 'w') as zipf:
-        # Add each result file to the zip
         for detection in detections:
             if detection.result_path and os.path.exists(detection.result_path):
-                # Create a unique name in the zip to avoid conflicts
                 zip_name = f"{detection.detection_type}_{detection.id}_{os.path.basename(detection.result_path)}"
                 zipf.write(detection.result_path, zip_name)
         
-        # Add a metadata file with summary information
         metadata_content = "Detection Results Summary:\n\n"
         for detection in detections:
             metadata_content += f"""ID: {detection.id}
@@ -1051,10 +961,9 @@ def download_all_results():
             Yawn Detections: {detection.yawn_count}
             Head Movement Detections: {detection.head_movement_count}
             Average FPS: {detection.avg_fps}
-            Total Frames: {detection.total_frames}
-            
+            Total Frames: {detection.total_frames}       
             """
-        
+
         zipf.writestr('summary.txt', metadata_content)
     
     return send_file(zip_path, as_attachment=True, download_name=zip_filename)
@@ -1065,7 +974,6 @@ def model_info():
         flash('Please login first', 'warning')
         return redirect(url_for('login'))
     
-    # Model information
     model_info = {
         'name': 'YOLOv8 Drowsiness Detection',
         'description': 'This model is trained to detect driver drowsiness based on eye closure, yawning, and head movements.',

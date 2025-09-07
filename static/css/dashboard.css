@@ -1,6 +1,4 @@
-/* dashboard.css - Styles for dashboard and other authenticated pages */
 
-/* Dashboard container */
 .dashboard-container {
     display: flex;
     min-height: 100vh;

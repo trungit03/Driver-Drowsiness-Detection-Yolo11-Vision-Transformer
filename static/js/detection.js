@@ -1,5 +1,3 @@
-// detection.js - File detection page functionality
-
 document.addEventListener('DOMContentLoaded', function() {
     const fileInput = document.getElementById('file');
     const previewContainer = document.getElementById('previewContainer');
@@ -12,7 +10,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const viewDetailedBtn = document.getElementById('viewDetailedBtn');
     const resetBtn = document.getElementById('resetBtn');
     
-    // Add progress container
     const progressContainerHtml = `
         <div class="progress-container mt-3 d-none" id="progressContainer">
             <h4>Processing...</h4>
@@ -27,7 +24,6 @@ document.addEventListener('DOMContentLoaded', function() {
     `;
     
     if (uploadForm) {
-        // Add progress container after the form
         uploadForm.insertAdjacentHTML('afterend', progressContainerHtml);
     }
     
@@ -35,27 +31,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const progressBar = document.getElementById('progressBar');
     const progressStatus = document.getElementById('progressStatus');
     
-    // Reset button functionality
     if (resetBtn) {
         resetBtn.addEventListener('click', function() {
-            // Hide results section
             resultsSection.classList.add('d-none');
             
-            // Clear file input
             if (fileInput) {
                 fileInput.value = '';
             }
             
-            // Hide preview
             previewContainer.classList.add('d-none');
             previewContent.innerHTML = '';
             
-            // Reset progress
             progressContainer.classList.add('d-none');
             progressBar.style.width = '0%';
             progressBar.textContent = '0%';
             
-            // Enable upload button
             uploadBtn.disabled = false;
             uploadBtn.innerHTML = '<i class="fas fa-upload me-1"></i> Upload and Detect';
         });
@@ -69,17 +59,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const fileType = file.type;
                 previewContainer.classList.remove('d-none');
                 
-                // Clear previous preview
                 previewContent.innerHTML = '';
                 
                 if (fileType.startsWith('image/')) {
-                    // Preview image
                     const img = document.createElement('img');
                     img.classList.add('preview-image');
                     img.src = URL.createObjectURL(file);
                     previewContent.appendChild(img);
                 } else if (fileType.startsWith('video/')) {
-                    // Preview video
                     const video = document.createElement('video');
                     video.classList.add('preview-video');
                     video.controls = true;
@@ -96,20 +83,16 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const formData = new FormData(this);
             
-            // Show progress container
             progressContainer.classList.remove('d-none');
             progressBar.style.width = '0%';
             progressBar.textContent = '0%';
             progressStatus.textContent = 'Uploading file...';
             
-            // Hide results section if visible
             resultsSection.classList.add('d-none');
             
-            // Disable upload button
             uploadBtn.disabled = true;
             uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Processing...';
             
-            // Send AJAX request
             fetch('/file_detection', {
                 method: 'POST',
                 body: formData
@@ -117,16 +100,13 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
-                    // Show error
                     progressStatus.textContent = 'Error: ' + data.error;
                     progressBar.classList.remove('bg-info');
                     progressBar.classList.add('bg-danger');
                     
-                    // Re-enable upload button
                     uploadBtn.disabled = false;
                     uploadBtn.innerHTML = '<i class="fas fa-upload me-1"></i> Upload and Detect';
                 } else {
-                    // Start polling for progress
                     progressStatus.textContent = 'Processing...';
                     pollProgress(data.detection_id);
                 }
@@ -137,7 +117,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 progressBar.classList.remove('bg-info');
                 progressBar.classList.add('bg-danger');
                 
-                // Re-enable upload button
                 uploadBtn.disabled = false;
                 uploadBtn.innerHTML = '<i class="fas fa-upload me-1"></i> Upload and Detect';
             });
@@ -149,7 +128,6 @@ document.addEventListener('DOMContentLoaded', function() {
             fetch(`/detection_progress/${detectionId}`)
                 .then(response => response.json())
                 .then(data => {
-                    // Update progress bar
                     const progress = data.progress || 0;
                     progressBar.style.width = `${progress}%`;
                     progressBar.textContent = `${progress}%`;
@@ -160,10 +138,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         progressStatus.textContent = 'Processing complete!';
                         progressBar.classList.remove('progress-bar-animated');
                         
-                        // Load and display results
                         loadDetectionResults(detectionId);
                         
-                        // Re-enable upload button
                         uploadBtn.disabled = false;
                         uploadBtn.innerHTML = '<i class="fas fa-upload me-1"></i> Upload and Detect';
                     } else if (data.status === 'error') {
@@ -172,7 +148,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         progressBar.classList.remove('bg-info');
                         progressBar.classList.add('bg-danger');
                         
-                        // Re-enable upload button
                         uploadBtn.disabled = false;
                         uploadBtn.innerHTML = '<i class="fas fa-upload me-1"></i> Upload and Detect';
                     }
@@ -180,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 .catch(error => {
                     console.error('Error polling progress:', error);
                 });
-        }, 1000); // Poll every second
+        }, 1000); 
     }
     
     function loadDetectionResults(detectionId) {
@@ -192,10 +167,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
                 
-                // Show results section
                 resultsSection.classList.remove('d-none');
                 
-                // Display media result
                 mediaResult.innerHTML = '';
                 if (data.detection_type === 'image') {
                     const img = document.createElement('img');
@@ -210,7 +183,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     mediaResult.appendChild(video);
                 }
                 
-                // Display detection stats
                 const statsHtml = `
                     <div class="row">
                         <div class="col-md-6">
@@ -264,12 +236,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 detectionStats.innerHTML = statsHtml;
                 
-                // Update detailed results button link
                 if (viewDetailedBtn) {
                     viewDetailedBtn.href = `/view_result/${detectionId}`;
                 }
                 
-                // Scroll to results section
                 resultsSection.scrollIntoView({ behavior: 'smooth' });
             })
             .catch(error => {

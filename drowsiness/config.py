@@ -7,6 +7,6 @@ class Config:
     UPLOAD_FOLDER = 'static/uploads'
     ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
     ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'avi', 'mov', 'wmv'}
-    MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB max upload
+    MAX_CONTENT_LENGTH = 50 * 1024 * 1024  
     MODEL_PATH = 'models/best.pt'
 
