@@ -581,7 +581,6 @@ def start_webcam_detection():
 
 @app.route('/stop_webcam_detection', methods=['POST'])
 def stop_webcam_detection():
-    """Stop webcam detection"""
     global stop_threads
     
     if 'user_id' not in session:
